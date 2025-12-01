@@ -53,12 +53,28 @@ DAC_HandleTypeDef hdac3;
 
 HRTIM_HandleTypeDef hhrtim1;
 
+TIM_HandleTypeDef htim17;
+
 UART_HandleTypeDef huart3;
 
 PCD_HandleTypeDef hpcd_USB_FS;
 
 /* USER CODE BEGIN PV */
-
+HAL_StatusTypeDef status;
+const uint32_t adc_channels[]=
+{
+		ADC_CHANNEL_2,
+		ADC_CHANNEL_3
+};
+#define ADC_VREF_MV 3300
+uint16_t adc_mv[2];
+uint16_t adc_raw[2];
+void StartADC(void);
+void GetResult(void);
+void CenterGlass(void);
+#define GLASS_REFRENCE_LR_POS 2200
+#define GLASS_REFRENCE_UD_POS 2200
+#define ADC_POS_Hys 20
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -76,13 +92,14 @@ static void MX_HRTIM1_Init(void);
 static void MX_UCPD1_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USB_PCD_Init(void);
+static void MX_TIM17_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+int dutycycle=0;
 /* USER CODE END 0 */
 
 /**
@@ -126,23 +143,42 @@ int main(void)
   MX_UCPD1_Init();
   MX_USART3_UART_Init();
   MX_USB_PCD_Init();
+  MX_TIM17_Init();
   /* USER CODE BEGIN 2 */
-
+	HAL_TIM_PWM_Start(&htim17, TIM_CHANNEL_1);
+	status= HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
+	if(status!= HAL_OK)
+	{
+		Error_Handler();
+	}
+	StartADC();
+	HAL_Delay(1);
+	CenterGlass();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_4)==0 && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_5)==1 && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10)==1)
+	  //Drive motor left
+	  if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_4)==0 && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_5)==1 && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10)==1&& HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2)==1)
 	  {
 		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 1);
+		  //In_A
 		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 0);
+		  //In_B
 		  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_0, 1);
+		  //PWM
 		  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_1, 1);
+          //Select
+
+		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, 0);
+		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, 0);
+		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0);
+		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, 0);
 
 	  }
-
+	  //Motor stop
 	  if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_4)==1 && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2)==1 && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_5)==1 && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10)==1)
 	  {
 		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 0);
@@ -154,35 +190,67 @@ int main(void)
 		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0);
 		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, 0);
 	  }
-
-	  if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2)==0 && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_5)==1 && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10)==1)
+	  //Drive motor right
+	  if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2)==0 && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_5)==1 && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10)==1 && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_4)==1)
 	  {
 		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 0);
+		  //IN_A
 		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 1);
+		  //IN_B
 		  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_0, 1);
+		  //PWM
 		  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_1, 0);
+		  //Select
 
+		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, 0);
+		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, 0);
+		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0);
+		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, 0);
 	  }
-
-	  if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_5)==0 && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_4)==1 && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2)==1)
+	  //Drive motor up
+	  if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_5)==0 && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_4)==1 && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2) && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10)==1)
 	 	  {
 	 		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, 1);
+	 		  //IN_A
 	 		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, 0);
+	 		  //IN_B
 	 		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 1);
+	 		  //PWM
 	 		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, 1);
+	 		  //Select
+			  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 0);
+			  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 0);
+			  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_0, 0);
+			  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_1, 0);
 	 	  }
 
 
-
-	  if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10)==0 && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_4)==1 && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2)==1)
+	  //Drive motor down
+	  if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10)==0 && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_4)==1 && HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_5) && HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2)==1)
 	 	  {
 	 		  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, 0);
+	 		  //IN_A
 	 		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, 1);
+	 		  //IN_B
 	 		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 1);
+	 		  //PWM
 	 		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, 0);
+	 		  //Select
+	 		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 0);
+	 		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 0);
+	 		 HAL_GPIO_WritePin(GPIOF, GPIO_PIN_0, 0);
+	 		 HAL_GPIO_WritePin(GPIOF, GPIO_PIN_1, 0);
 
 	 	  }
 
+	  if(HAL_GPIO_ReadPin(JOYSTICK_SEL_GPIO_Port, JOYSTICK_SEL_Pin)==0)
+	  {
+		  TIM17->CCR1=5000;
+	  }
+	  else
+	  {
+		  TIM17->CCR1=0;
+	  }
 
     /* USER CODE END WHILE */
 
@@ -260,15 +328,15 @@ static void MX_ADC1_Init(void)
   /** Common config
   */
   hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV16;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.GainCompensation = 0;
-  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
   hadc1.Init.ContinuousConvMode = DISABLE;
-  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.NbrOfConversion = 2;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
@@ -290,12 +358,21 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_8;
+  sConfig.Channel = ADC_CHANNEL_2;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_3;
+  sConfig.Rank = ADC_REGULAR_RANK_2;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -756,6 +833,69 @@ static void MX_HRTIM1_Init(void)
 }
 
 /**
+  * @brief TIM17 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM17_Init(void)
+{
+
+  /* USER CODE BEGIN TIM17_Init 0 */
+
+  /* USER CODE END TIM17_Init 0 */
+
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM17_Init 1 */
+
+  /* USER CODE END TIM17_Init 1 */
+  htim17.Instance = TIM17;
+  htim17.Init.Prescaler = 170;
+  htim17.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim17.Init.Period = 10000;
+  htim17.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim17.Init.RepetitionCounter = 0;
+  htim17.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim17) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim17) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim17, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.BreakFilter = 0;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim17, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM17_Init 2 */
+
+  /* USER CODE END TIM17_Init 2 */
+  HAL_TIM_MspPostInit(&htim17);
+
+}
+
+/**
   * @brief UCPD1 Initialization Function
   * @param None
   * @retval None
@@ -978,7 +1118,117 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void StartADC ()
+{
+	HAL_ADC_Start(&hadc1);
+	if(status!= HAL_OK)
+	{
+		Error_Handler();
+	}
+}
 
+void GetResult(void)
+{
+	for(int i=0;i<sizeof(adc_raw)/sizeof(adc_raw[0]);++i)
+	{
+		status=HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
+		{
+			if(status!=HAL_OK)
+			{
+				Error_Handler();
+			}
+			adc_raw[i]=HAL_ADC_GetValue(&hadc1);
+			adc_mv[i]=__HAL_ADC_CALC_DATA_TO_VOLTAGE(ADC_VREF_MV,adc_raw[i],ADC_RESOLUTION_12B);
+		}
+	}
+}
+
+void CenterGlass(void)
+{
+	GetResult();
+	while((adc_mv[0]<(GLASS_REFRENCE_LR_POS - ADC_POS_Hys)) || adc_mv[0]>(GLASS_REFRENCE_LR_POS + ADC_POS_Hys))
+	{
+		StartADC();
+		if(adc_mv[0]<GLASS_REFRENCE_LR_POS)
+		{//move left
+					HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 1);
+					  //In_A
+					  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 0);
+					  //In_B
+					  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_0, 1);
+					  //PWM
+					  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_1, 1);
+			          //Select
+
+					  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, 0);
+					  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, 0);
+					  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0);
+					  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, 0);
+		}
+		else
+		{//move right
+			 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 0);
+					  //IN_A
+					  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 1);
+					  //IN_B
+					  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_0, 1);
+					  //PWM
+					  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_1, 0);
+					  //Select
+
+					  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, 0);
+					  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, 0);
+					  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0);
+					  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, 0);
+		}
+		HAL_Delay(1);
+		GetResult();
+	}
+	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 0);
+	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 0);
+	  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_0, 0);
+	  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_1, 0);
+	while((adc_mv[1]<(GLASS_REFRENCE_UD_POS - ADC_POS_Hys)) || adc_mv[1]>(GLASS_REFRENCE_UD_POS + ADC_POS_Hys))
+	{
+		StartADC();
+		if(adc_mv[1]<GLASS_REFRENCE_UD_POS)
+		{//move up
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, 1);
+				 		  //IN_A
+				 		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, 0);
+				 		  //IN_B
+				 		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 1);
+				 		  //PWM
+				 		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, 1);
+				 		  //Select
+						  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 0);
+						  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 0);
+						  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_0, 0);
+						  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_1, 0);
+		}
+		else
+		{//move down
+			 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, 0);
+				 		  //IN_A
+				 		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, 1);
+				 		  //IN_B
+				 		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 1);
+				 		  //PWM
+				 		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, 0);
+				 		  //Select
+				 		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 0);
+				 		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 0);
+				 		 HAL_GPIO_WritePin(GPIOF, GPIO_PIN_0, 0);
+				 		 HAL_GPIO_WritePin(GPIOF, GPIO_PIN_1, 0);
+		}
+		HAL_Delay(1);
+		GetResult();
+	}
+		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, 0);
+		 HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, 0);
+		 HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0);
+		 HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, 0);
+}
 /* USER CODE END 4 */
 
 /**

@@ -62,6 +62,8 @@ extern "C" {
 
 void HAL_HRTIM_MspPostInit(HRTIM_HandleTypeDef *hhrtim);
 
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
 
@@ -83,10 +85,10 @@ void Error_Handler(void);
 #define BUCKBOOST_USBPD_EN_GPIO_Port GPIOC
 #define BUCK_GREEN_SENSE_Pin GPIO_PIN_0
 #define BUCK_GREEN_SENSE_GPIO_Port GPIOA
-#define BUCKBOOST_VIN_Pin GPIO_PIN_1
-#define BUCKBOOST_VIN_GPIO_Port GPIOA
-#define BUCKBOOST_I_IN_AVG_Pin GPIO_PIN_2
-#define BUCKBOOST_I_IN_AVG_GPIO_Port GPIOA
+#define Pos_M1_Pin GPIO_PIN_1
+#define Pos_M1_GPIO_Port GPIOA
+#define Pos_M2_Pin GPIO_PIN_2
+#define Pos_M2_GPIO_Port GPIOA
 #define BUCKBOOST_VOUT_Pin GPIO_PIN_3
 #define BUCKBOOST_VOUT_GPIO_Port GPIOA
 #define BUCK_RED_SENSE_Pin GPIO_PIN_7
