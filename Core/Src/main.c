@@ -72,8 +72,8 @@ uint16_t adc_raw[2];
 void StartADC(void);
 void GetResult(void);
 void CenterGlass(void);
-#define GLASS_REFRENCE_LR_POS 2200
-#define GLASS_REFRENCE_UD_POS 2200
+#define GLASS_REFRENCE_LR_POS 1900
+#define GLASS_REFRENCE_UD_POS 606
 #define ADC_POS_Hys 20
 /* USER CODE END PV */
 
@@ -245,7 +245,11 @@ int main(void)
 
 	  if(HAL_GPIO_ReadPin(JOYSTICK_SEL_GPIO_Port, JOYSTICK_SEL_Pin)==0)
 	  {
-		  TIM17->CCR1=5000;
+		  TIM17->CCR1=2000;
+		  HAL_Delay(350);
+		  TIM17->CCR1=0;
+		  	  HAL_Delay(350);
+
 	  }
 	  else
 	  {
@@ -1132,24 +1136,23 @@ void GetResult(void)
 	for(int i=0;i<sizeof(adc_raw)/sizeof(adc_raw[0]);++i)
 	{
 		status=HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
-		{
 			if(status!=HAL_OK)
 			{
 				Error_Handler();
 			}
 			adc_raw[i]=HAL_ADC_GetValue(&hadc1);
 			adc_mv[i]=__HAL_ADC_CALC_DATA_TO_VOLTAGE(ADC_VREF_MV,adc_raw[i],ADC_RESOLUTION_12B);
-		}
+			StartADC();
 	}
 }
 
 void CenterGlass(void)
 {
 	GetResult();
-	while((adc_mv[0]<(GLASS_REFRENCE_LR_POS - ADC_POS_Hys)) || adc_mv[0]>(GLASS_REFRENCE_LR_POS + ADC_POS_Hys))
+	while((adc_mv[1]<(GLASS_REFRENCE_LR_POS - ADC_POS_Hys)) || adc_mv[1]>(GLASS_REFRENCE_LR_POS + ADC_POS_Hys))
 	{
 		StartADC();
-		if(adc_mv[0]<GLASS_REFRENCE_LR_POS)
+		if(adc_mv[1]<GLASS_REFRENCE_LR_POS)
 		{//move left
 					HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0, 1);
 					  //In_A
@@ -1188,10 +1191,10 @@ void CenterGlass(void)
 	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 0);
 	  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_0, 0);
 	  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_1, 0);
-	while((adc_mv[1]<(GLASS_REFRENCE_UD_POS - ADC_POS_Hys)) || adc_mv[1]>(GLASS_REFRENCE_UD_POS + ADC_POS_Hys))
+	while((adc_mv[0]<(GLASS_REFRENCE_UD_POS - ADC_POS_Hys)) || adc_mv[0]>(GLASS_REFRENCE_UD_POS + ADC_POS_Hys))
 	{
 		StartADC();
-		if(adc_mv[1]<GLASS_REFRENCE_UD_POS)
+		if(adc_mv[0]<GLASS_REFRENCE_UD_POS)
 		{//move up
 			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, 1);
 				 		  //IN_A
